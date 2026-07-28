@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.spec
+build/
+dist/
+*.exe
+*.pyd
+*.ico
