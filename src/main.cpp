@@ -39,7 +39,7 @@ constexpr wchar_t kMainClass[] = L"RecoverXMainWindow";
 constexpr wchar_t kPageClass[] = L"RecoverXPage";
 constexpr wchar_t kBootClass[] = L"RecoverXBootMenu";
 constexpr wchar_t kMutexName[] = L"Local\\RecoverXSingleInstance";
-constexpr wchar_t kVersion[] = L"v1.0.0";
+constexpr wchar_t kVersion[] = L"v3.0.0";
 constexpr wchar_t kUpdatePath[] = L"/repos/matvey14ustinov13-ctrl/RecoverX/releases/latest";
 constexpr UINT kTrayMessage = WM_APP + 1;
 constexpr UINT_PTR kCountdownTimer = 1;
@@ -59,7 +59,6 @@ enum PageIndex {
     PAGE_RESTORE,
     PAGE_UPDATES,
     PAGE_UWP,
-    PAGE_DRIVERS,
     PAGE_SETTINGS,
     PAGE_COUNT
 };
@@ -131,10 +130,6 @@ enum ControlId {
     ID_UWP_REMOVE,
     ID_UWP_ALL,
     ID_UWP_LIST = 1010,
-
-    ID_DRIVER_NVIDIA = 1100,
-    ID_DRIVER_AMD,
-    ID_DRIVER_INTEL,
 
     ID_TRAY_CHECK = 1200,
     ID_AUTOSTART_CHECK,
@@ -245,6 +240,33 @@ static std::wstring FormatPercent(double value) {
     return ss.str();
 }
 
+static std::vector<int> ParseVersion(const std::wstring& text) {
+    std::vector<int> parts;
+    std::wstring digits;
+    for (wchar_t ch : text) {
+        if (ch >= L'0' && ch <= L'9') {
+            digits.push_back(ch);
+        } else if (!digits.empty()) {
+            parts.push_back(std::stoi(digits));
+            digits.clear();
+        }
+    }
+    if (!digits.empty()) parts.push_back(std::stoi(digits));
+    return parts;
+}
+
+static int CompareVersions(const std::wstring& left, const std::wstring& right) {
+    std::vector<int> a = ParseVersion(left);
+    std::vector<int> b = ParseVersion(right);
+    size_t count = std::max(a.size(), b.size());
+    for (size_t i = 0; i < count; ++i) {
+        int x = i < a.size() ? a[i] : 0;
+        int y = i < b.size() ? b[i] : 0;
+        if (x != y) return x < y ? -1 : 1;
+    }
+    return 0;
+}
+
 static std::wstring LastErrorText() {
     DWORD code = GetLastError();
     wchar_t* buffer = nullptr;
@@ -296,7 +318,6 @@ static StrMap EnglishStrings() {
         {L"restore", L"Restore Points"},
         {L"windows_update", L"Windows Update"},
         {L"uwp", L"UWP Apps"},
-        {L"drivers", L"Drivers"},
         {L"settings", L"Settings"},
         {L"timer_shutdown", L"Shutdown"},
         {L"timer_restart", L"Restart"},
@@ -361,9 +382,6 @@ static StrMap EnglishStrings() {
         {L"uwp_for_all", L"For all users"},
         {L"confirm_uwp_remove", L"Remove selected apps permanently?"},
         {L"uwp_no_apps", L"No UWP apps found or admin rights required."},
-        {L"drivers_nvidia", L"NVIDIA Drivers"},
-        {L"drivers_amd", L"AMD Drivers"},
-        {L"drivers_intel", L"Intel Drivers"},
         {L"tray_on", L"Minimize to tray on close"},
         {L"autostart", L"Start RecoverX with Windows"},
         {L"startup_settings", L"Windows Startup Settings"},
@@ -419,7 +437,6 @@ static StrMap RussianStrings() {
         {L"restore", L"Точки восстановления"},
         {L"windows_update", L"Windows Update"},
         {L"uwp", L"UWP Приложения"},
-        {L"drivers", L"Драйверы"},
         {L"settings", L"Настройки"},
         {L"timer_shutdown", L"Выключение"},
         {L"timer_restart", L"Перезагрузка"},
@@ -484,9 +501,6 @@ static StrMap RussianStrings() {
         {L"uwp_for_all", L"Для всех пользователей"},
         {L"confirm_uwp_remove", L"Удалить выбранные приложения безвозвратно?"},
         {L"uwp_no_apps", L"Приложения UWP не найдены или требуются права администратора."},
-        {L"drivers_nvidia", L"Драйверы NVIDIA"},
-        {L"drivers_amd", L"Драйверы AMD"},
-        {L"drivers_intel", L"Драйверы Intel"},
         {L"tray_on", L"Сворачивать в трей при закрытии"},
         {L"autostart", L"Запускать RecoverX с Windows"},
         {L"startup_settings", L"Настройки автозагрузок Windows"},
@@ -743,7 +757,6 @@ private:
     void BuildRestorePage();
     void BuildUpdatesPage();
     void BuildUwpPage();
-    void BuildDriversPage();
     void BuildSettingsPage();
 
     HWND CreateButton(HWND parent, int id, const std::wstring& text, int x, int y, int w, int h);
@@ -1094,7 +1107,7 @@ void RecoverXApp::CreateNavigation() {
 
     static const wchar_t* keys[PAGE_COUNT] = {
         L"power", L"boot", L"system", L"maintenance", L"scheduler", L"monitor",
-        L"restore", L"windows_update", L"uwp", L"drivers", L"settings"
+        L"restore", L"windows_update", L"uwp", L"settings"
     };
     navButtons_.clear();
     for (int i = 0; i < PAGE_COUNT; ++i) {
@@ -1129,7 +1142,6 @@ void RecoverXApp::BuildPage(int index) {
         case PAGE_RESTORE: BuildRestorePage(); break;
         case PAGE_UPDATES: BuildUpdatesPage(); break;
         case PAGE_UWP: BuildUwpPage(); break;
-        case PAGE_DRIVERS: BuildDriversPage(); break;
         case PAGE_SETTINGS: BuildSettingsPage(); break;
         default: break;
     }
@@ -1217,7 +1229,7 @@ void RecoverXApp::SwitchPage(int index) {
 void RecoverXApp::UpdateNavTexts() {
     static const wchar_t* keys[PAGE_COUNT] = {
         L"power", L"boot", L"system", L"maintenance", L"scheduler", L"monitor",
-        L"restore", L"windows_update", L"uwp", L"drivers", L"settings"
+        L"restore", L"windows_update", L"uwp", L"settings"
     };
     for (int i = 0; i < static_cast<int>(navButtons_.size()); ++i) {
         SetText(navButtons_[i], S(keys[i]));
@@ -1434,15 +1446,6 @@ void RecoverXApp::BuildUwpPage() {
     CreateButton(page, ID_UWP_REMOVE, S(L"remove_uwp"), 400, 516, 160, 36);
 }
 
-void RecoverXApp::BuildDriversPage() {
-    HWND page = Page(PAGE_DRIVERS);
-    if (!page) return;
-    CreateLabel(page, S(L"drivers"), 24, 14, 540, 40, fontLarge_);
-    CreateButton(page, ID_DRIVER_NVIDIA, S(L"drivers_nvidia"), 24, 84, 460, 42);
-    CreateButton(page, ID_DRIVER_AMD, S(L"drivers_amd"), 24, 136, 460, 42);
-    CreateButton(page, ID_DRIVER_INTEL, S(L"drivers_intel"), 24, 188, 460, 42);
-}
-
 void RecoverXApp::BuildSettingsPage() {
     HWND page = Page(PAGE_SETTINGS);
     if (!page) return;
@@ -1457,6 +1460,8 @@ void RecoverXApp::BuildSettingsPage() {
     CreateButton(page, ID_LANG_EN, L"English", 24, 286, 160, 38);
     CreateButton(page, ID_LANG_RU, L"Русский", 196, 286, 160, 38);
     CreateLabel(page, std::wstring(L"RecoverX ") + kVersion, 24, 344, 440, 24);
+    CreateLabel(page, L"Поддержка программы завершена.", 24, 382, 500, 24, fontBold_);
+    CreateLabel(page, L"Program support has ended.", 24, 408, 500, 24, fontBold_);
 }
 
 // Dialogs
@@ -1660,10 +1665,6 @@ void RecoverXApp::OnCommand(int id) {
             SetCheckState(uwpAllCheck_, uwpAll_);
             return;
         case ID_UWP_REMOVE: RemoveSelectedUwp(); return;
-
-        case ID_DRIVER_NVIDIA: OpenUrl(L"https://www.nvidia.com/download/index.aspx"); return;
-        case ID_DRIVER_AMD: OpenUrl(L"https://www.amd.com/en/support"); return;
-        case ID_DRIVER_INTEL: OpenUrl(L"https://www.intel.com/content/www/us/en/download-center/home.html"); return;
 
         case ID_TRAY_CHECK:
             trayEnabled_ = !trayEnabled_;
@@ -2339,7 +2340,7 @@ void RecoverXApp::CheckAppUpdates() {
         std::wstring link = Utf8ToWide(ExtractJsonString(body, "html_url"));
         if (latest.empty()) {
             Error(S(L"update_error"), L"RecoverX");
-        } else if (latest != kVersion) {
+        } else if (CompareVersions(latest, kVersion) > 0) {
             std::wstring message = S(L"update_available");
             ReplaceAll(message, L"{version}", latest);
             ReplaceAll(message, L"{url}", link);

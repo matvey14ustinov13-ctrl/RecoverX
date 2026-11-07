@@ -4,8 +4,8 @@
 1 24 "app.manifest"
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,0
- PRODUCTVERSION 1,0,0,0
+ FILEVERSION 3,0,0,0
+ PRODUCTVERSION 3,0,0,0
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS 0x40004L
@@ -18,12 +18,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Backup Team"
             VALUE "FileDescription", "RecoverX - System Utility"
-            VALUE "FileVersion", "1.0.0.0"
+            VALUE "FileVersion", "3.0.0.0"
             VALUE "InternalName", "RecoverX"
             VALUE "LegalCopyright", "Backup Team"
             VALUE "OriginalFilename", "RecoverX.exe"
             VALUE "ProductName", "RecoverX"
-            VALUE "ProductVersion", "1.0.0.0"
+            VALUE "ProductVersion", "3.0.0.0"
         END
     END
     BLOCK "VarFileInfo"
